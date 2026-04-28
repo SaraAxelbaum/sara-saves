@@ -575,6 +575,8 @@
       display: none;
     }
     .milestone-banner.show { display: block; }
+    .save-card.todo-done { opacity: 0.55; }
+    .save-card.todo-done .card-title { text-decoration: line-through; color: var(--text-muted); }
   </style>
 </head>
 <body>
@@ -589,6 +591,7 @@
   </div>
   <div class="filter-bar" id="catFilter">
     <button class="filter-chip active" data-cat="All" onclick="filterBy('All', this)">All</button>
+    <button class="filter-chip" data-cat="Todo" onclick="filterByTodo(this)">To Do</button>
     <button class="filter-chip" data-cat="Unread" onclick="filterByStatus('unread', this)">Unread</button>
     <button class="filter-chip" data-cat="Job Search" onclick="filterBy('Job Search', this)">Job Search</button>
     <button class="filter-chip" data-cat="Querying" onclick="filterBy('Querying', this)">Querying</button>
@@ -651,6 +654,34 @@
       </select>
     </div>
 
+    <div class="form-group">
+      <label>Note (optional)</label>
+      <textarea id="inputNote" placeholder="Any context, why you saved this, what to do with it..." style="min-height:60px"></textarea>
+    </div>
+
+    <div class="form-group" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="inputTodo" style="width:18px;height:18px;accent-color:var(--accent);cursor:pointer">
+      <label style="margin:0;text-transform:none;font-size:14px;letter-spacing:0;color:var(--text);cursor:pointer" for="inputTodo">Add to To Do list</label>
+    </div>
+
+    <div id="todoFields" style="display:none">
+      <div style="display:flex;gap:10px;margin-bottom:14px">
+        <div style="flex:1">
+          <label>Due Date (optional)</label>
+          <input type="date" id="inputDueDate" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;padding:12px;width:100%">
+        </div>
+        <div style="flex:1">
+          <label>Priority (optional)</label>
+          <select id="inputPriority">
+            <option value="">None</option>
+            <option value="high">🔴 High</option>
+            <option value="medium">🟡 Medium</option>
+            <option value="low">🟢 Low</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
     <div class="processing-indicator" id="processingIndicator">
       <div class="spinner"></div>
       <span>Claude is organizing this...</span>
@@ -710,7 +741,14 @@ function render() {
   const empty = document.getElementById('emptyState');
 
   let filtered = saves;
-  if (currentFilter !== 'All') {
+  if (currentFilter === 'Todo') {
+    filtered = filtered.filter(s => s.isTodo);
+    // Sort: incomplete first, done at bottom
+    filtered = [
+      ...filtered.filter(s => !s.todoDone),
+      ...filtered.filter(s => s.todoDone),
+    ];
+  } else if (currentFilter !== 'All') {
     filtered = filtered.filter(s => s.category === currentFilter);
   }
   if (currentStatusFilter === 'unread') {
@@ -728,7 +766,7 @@ function render() {
     const color = getCatColor(s.category);
     const dateStr = new Date(s.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     return `
-      <div class="save-card" onclick="openDetail('${s.id}')">
+      <div class="save-card${s.todoDone ? ' todo-done' : ''}" onclick="openDetail('${s.id}')">
         <div class="card-header">
           <div class="cat-dot" style="background:${color}"></div>
           <div class="card-meta">
@@ -736,6 +774,11 @@ function render() {
             <div class="card-badges">
               <span class="badge badge-cat" style="--cat-color:${color}">${escHtml(s.category)}</span>
               <span class="badge badge-status ${s.status}">${statusLabel(s.status)}</span>
+              ${s.isTodo ? `<span class="badge" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.4);color:#38bdf8">☑ To Do</span>` : ''}
+              ${s.priority === 'high' ? '<span class="badge" style="background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.4);color:#f87171">🔴 High</span>' : ''}
+              ${s.priority === 'medium' ? '<span class="badge" style="background:rgba(250,204,21,0.15);border:1px solid rgba(250,204,21,0.4);color:#facc15">🟡 Medium</span>' : ''}
+              ${s.priority === 'low' ? '<span class="badge" style="background:rgba(74,222,128,0.15);border:1px solid rgba(74,222,128,0.4);color:#4ade80">🟢 Low</span>' : ''}
+              ${s.dueDate ? `<span class="badge" style="background:rgba(167,139,250,0.15);border:1px solid rgba(167,139,250,0.4);color:#a78bfa">📅 ${s.dueDate}</span>` : ''}
               ${s.newCategoryFlag ? `<span class="badge" style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.4);color:#fbbf24">✦ New Category</span>` : ''}
             </div>
           </div>
@@ -746,6 +789,7 @@ function render() {
           ${s.timing ? `<div class="card-timing">⏱ ${escHtml(s.timing)}</div>` : ''}
         </div>
         <div class="card-actions-row" onclick="event.stopPropagation()">
+          ${s.isTodo ? `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text-muted)"><input type="checkbox" ${s.todoDone?'checked':''} onchange="toggleTodoDone('${s.id}', this.checked)" style="width:16px;height:16px;accent-color:var(--accent3)"> Done</label>` : ''}
           <select class="status-select" onchange="updateStatus('${s.id}', this.value)">
             <option value="unread" ${s.status==='unread'?'selected':''}>Unread</option>
             <option value="in-progress" ${s.status==='in-progress'?'selected':''}>In Progress</option>
@@ -795,6 +839,14 @@ function filterBy(cat, el) {
   render();
 }
 
+function filterByTodo(el) {
+  currentFilter = 'Todo';
+  currentStatusFilter = null;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  render();
+}
+
 function filterByStatus(status, el) {
   currentFilter = 'All';
   currentStatusFilter = status;
@@ -807,6 +859,11 @@ function filterByStatus(status, el) {
 function openAddModal() {
   document.getElementById('inputContent').value = '';
   document.getElementById('inputCategory').value = 'auto';
+  document.getElementById('inputNote').value = '';
+  document.getElementById('inputTodo').checked = false;
+  document.getElementById('todoFields').style.display = 'none';
+  document.getElementById('inputDueDate').value = '';
+  document.getElementById('inputPriority').value = '';
   document.getElementById('processingIndicator').classList.remove('visible');
   document.getElementById('saveBtn').disabled = false;
   document.getElementById('addModal').classList.add('open');
@@ -817,12 +874,25 @@ function closeAddModal() {
   document.getElementById('addModal').classList.remove('open');
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+  const todoCheck = document.getElementById('inputTodo');
+  if (todoCheck) {
+    todoCheck.addEventListener('change', function() {
+      document.getElementById('todoFields').style.display = this.checked ? 'block' : 'none';
+    });
+  }
+});
+
 // SAVE + CLAUDE PROCESSING
 async function saveItem() {
   const content = document.getElementById('inputContent').value.trim();
   if (!content) { showToast('Paste something first'); return; }
 
   const categoryHint = document.getElementById('inputCategory').value;
+  const userNote = document.getElementById('inputNote').value.trim();
+  const isTodo = document.getElementById('inputTodo').checked;
+  const dueDate = document.getElementById('inputDueDate').value;
+  const priority = document.getElementById('inputPriority').value;
   const btn = document.getElementById('saveBtn');
   const indicator = document.getElementById('processingIndicator');
 
@@ -848,6 +918,13 @@ async function saveItem() {
       status: 'unread',
       savedAt: new Date().toISOString(),
       url: extractUrl(content),
+      userNote: userNote || '',
+      isTodo: isTodo,
+      dueDate: dueDate || '',
+      priority: priority || '',
+      todoDone: false,
+      recipeRating: null,
+      recipeUserNote: '',
     };
 
     saves.unshift(save);
@@ -882,6 +959,13 @@ async function saveItem() {
       status: 'unread',
       savedAt: new Date().toISOString(),
       url: extractUrl(content),
+      userNote: userNote || '',
+      isTodo: isTodo,
+      dueDate: dueDate || '',
+      priority: priority || '',
+      todoDone: false,
+      recipeRating: null,
+      recipeUserNote: '',
     });
     storeSaves(saves);
     showToast('Saved (offline mode - no AI summary)');
@@ -909,13 +993,26 @@ ${content}
 
 ${categoryInstruction}
 
+IMPORTANT TITLE RULE: If the content is a URL, extract the actual page/article/site name as the title — NOT the URL itself. For example, "https://www.nytimes.com/2024/01/01/food/recipe.html" should become "NY Times: [Article Name]". Use the domain and any readable path segments to infer a human-readable title if the full page title is not obvious.
+
+RECIPE FORMAT: If this is a recipe, you MUST populate recipeData with all available fields. Format it like a proper recipe card:
+- prepTime: e.g. "20 minutes"
+- cookTime: e.g. "12 minutes"  
+- chillTime: e.g. "30 minutes" (if applicable)
+- servings: e.g. "24 cookies"
+- equipment: list of equipment needed
+- ingredients: { dry: [], wet: [] } — split into dry and wet if applicable, otherwise just use dry for all
+- instructions: numbered steps array
+- dietaryTags: e.g. ["vegetarian", "contains eggs"]
+- source: original recipe source if mentioned
+
 Return this exact JSON structure (no markdown, no explanation, only JSON):
 {
-  "title": "Short descriptive title (max 10 words)",
+  "title": "Human-readable title, NOT a raw URL",
   "summary": "2-3 sentence summary of what this is and why it might be useful to Sara",
   "category": "one of the existing categories or a new one if needed",
   "nextAction": "Specific, actionable next step Sara should take (max 12 words)",
-  "timing": "Suggested timing e.g. 'This week', 'Weekend', 'Before next interview', 'When cooking', 'Low urgency'",
+  "timing": "Suggested timing e.g. This week, Weekend, Before next interview, When cooking, Low urgency",
   "tags": ["tag1", "tag2"],
   "newCategoryFlag": false,
   "suggestedNewCategory": null,
@@ -924,10 +1021,11 @@ Return this exact JSON structure (no markdown, no explanation, only JSON):
 }
 
 SPECIAL RULES:
-- If this is a RECIPE, populate recipeData: { "prepTime": "", "cookTime", "servings": "", "keyIngredients": [], "dietaryTags": [] }
+- If this is a RECIPE, populate recipeData with all fields above instead of null
 - If this is a PLACE, populate placeData: { "city": "", "state": "", "type": "", "recommendedDishes": [] }
-- If you choose a category not in the existing list (${existingCategories}), set newCategoryFlag to true and put the new category name in suggestedNewCategory AND in category.
-- Keep everything concise and mobile-friendly.`;
+- If you choose a category not in the existing list (${existingCategories}), set newCategoryFlag to true and put the new category name in suggestedNewCategory AND in category
+- Keep everything concise and mobile-friendly
+- NEVER return a raw URL as the title`;
 
   // Calls your Cloudflare Worker — update this URL after you deploy the worker
   const WORKER_URL = 'https://sara-saves.sra817.workers.dev/';
@@ -957,6 +1055,17 @@ function updateStatus(id, status) {
   const idx = saves.findIndex(s => s.id === id);
   if (idx > -1) {
     saves[idx].status = status;
+    storeSaves(saves);
+    render();
+  }
+}
+
+// TODO DONE TOGGLE
+function toggleTodoDone(id, done) {
+  const idx = saves.findIndex(s => s.id === id);
+  if (idx > -1) {
+    saves[idx].todoDone = done;
+    saves[idx].status = done ? 'done' : 'in-progress';
     storeSaves(saves);
     render();
   }
@@ -1033,6 +1142,31 @@ function openDetail(id) {
     ${save.url ? `<div class="detail-section"><h4>Link</h4><a class="url-link" href="${escHtml(save.url)}" target="_blank">${escHtml(save.url)}</a></div>` : ''}
 
     ${save.tags?.length ? `<div class="detail-section"><h4>Tags</h4><div style="display:flex;flex-wrap:wrap;gap:6px">${save.tags.map(t => `<span class="badge" style="background:var(--surface);border:1px solid var(--border);color:var(--text-muted)">${escHtml(t)}</span>`).join('')}</div></div>` : ''}
+
+    ${save.userNote ? `<div class="detail-section"><h4>Your Note</h4><p>${escHtml(save.userNote)}</p></div>` : ''}
+
+    ${save.isTodo ? `<div class="detail-section">
+      <h4>To Do Details</h4>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:14px">
+        ${save.dueDate ? `<div><span style="color:var(--text-muted)">Due: </span>${escHtml(save.dueDate)}</div>` : ''}
+        ${save.priority ? `<div><span style="color:var(--text-muted)">Priority: </span>${save.priority === 'high' ? '🔴 High' : save.priority === 'medium' ? '🟡 Medium' : '🟢 Low'}</div>` : ''}
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${save.todoDone?'checked':''} onchange="toggleTodoDone('${save.id}', this.checked)" style="accent-color:var(--accent3)"> Mark done</label>
+      </div>
+    </div>` : ''}
+
+    ${save.recipeData ? `<div class="detail-section">
+      <h4>Rate This Recipe</h4>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div id="starRating_${save.id}" style="display:flex;gap:4px">
+          ${[1,2,3,4,5].map(n => `<span onclick="rateRecipe('${save.id}',${n})" style="font-size:24px;cursor:pointer;opacity:${(save.recipeRating||0)>=n?1:0.3}">★</span>`).join('')}
+        </div>
+        ${save.recipeRating ? `<span style="color:var(--text-muted);font-size:13px">${save.recipeRating}/5</span>` : '<span style="color:var(--text-muted);font-size:12px">Tap to rate</span>'}
+      </div>
+      <div style="margin-top:10px">
+        <textarea id="recipeNote_${save.id}" placeholder="Add a note about this recipe..." style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:10px;width:100%;min-height:60px;resize:vertical">${escHtml(save.recipeUserNote||'')}</textarea>
+        <button onclick="saveRecipeNote('${save.id}')" style="margin-top:6px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text-muted);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;padding:5px 12px">Save Note</button>
+      </div>
+    </div>` : ''}
 
     <div class="detail-section">
       <h4>Original Content</h4>
@@ -1231,6 +1365,26 @@ if (inputEl) {
       document.getElementById('secretOverlay').classList.add('show');
     }
   });
+}
+
+function rateRecipe(id, rating) {
+  const idx = saves.findIndex(s => s.id === id);
+  if (idx > -1) {
+    saves[idx].recipeRating = rating;
+    storeSaves(saves);
+    openDetail(id); // re-render detail
+    showToast('Rating saved!');
+  }
+}
+
+function saveRecipeNote(id) {
+  const idx = saves.findIndex(s => s.id === id);
+  const note = document.getElementById('recipeNote_' + id);
+  if (idx > -1 && note) {
+    saves[idx].recipeUserNote = note.value;
+    storeSaves(saves);
+    showToast('Note saved!');
+  }
 }
 
 function closeSecret() {
