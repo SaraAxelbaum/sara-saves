@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Sara Saves" />
+  <meta name="theme-color" content="#0a0a18" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>Sara Saves</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0a0a18;
+      --surface: #12122a;
+      --surface2: #1c1c3a;
+      --border: #2a2a50;
+      --accent: #7c6fcd;
+      --accent2: #38bdf8;
+      --accent3: #2dd4bf;
+      --text: #eeeeff;
+      --text-muted: #7878aa;
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    /* HEADER */
+    .header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 20px 16px;
+      padding-top: calc(20px + env(safe-area-inset-top));
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 22px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .add-btn {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      border-radius: 50px;
+      color: white;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      padding: 8px 18px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* FILTER TABS */
+    .filter-bar {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding-bottom: 2px;
+    }
+    .filter-bar::-webkit-scrollbar { display: none; }
+
+    .filter-chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 50px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      padding: 5px 12px;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .filter-chip.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+      font-weight: 500;
+    }
+
+    /* MAIN CONTENT */
+    .main {
+      padding: 16px;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-state p { font-size: 15px; line-height: 1.6; }
+
+    /* SAVE CARDS */
+    .saves-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .save-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: border-color 0.2s;
+      cursor: pointer;
+    }
+    .save-card:hover { border-color: var(--accent); }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 14px 14px 10px;
+    }
+
+    .cat-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+
+    .card-meta {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .card-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.3;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+
+    .card-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-bottom: 6px;
+    }
+
+    .badge {
+      border-radius: 50px;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px;
+    }
+
+    .badge-cat {
+      background: color-mix(in srgb, var(--cat-color) 20%, transparent);
+      border: 1px solid color-mix(in srgb, var(--cat-color) 50%, transparent);
+      color: var(--cat-color);
+    }
+
+    .badge-status {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 50px;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .badge-status.unread { color: var(--accent2); border-color: var(--accent2); }
+    .badge-status.in-progress { color: var(--accent3); border-color: var(--accent3); }
+    .badge-status.done { color: var(--text-muted); text-decoration: line-through; }
+
+    .card-summary {
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.5;
+      padding: 0 14px 10px 32px;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px 12px 32px;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .card-action {
+      background: color-mix(in srgb, var(--accent3) 15%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent3) 40%, transparent);
+      border-radius: 8px;
+      color: var(--accent3);
+      font-size: 12px;
+      padding: 4px 10px;
+    }
+
+    .card-timing {
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+
+    .card-date {
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+
+    .card-actions-row {
+      display: flex;
+      gap: 8px;
+      padding: 0 14px 12px 32px;
+    }
+
+    .action-btn-sm {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 12px;
+      padding: 4px 10px;
+      transition: all 0.15s;
+    }
+    .action-btn-sm:hover { color: var(--text); border-color: var(--accent); }
+    .action-btn-sm.danger:hover { color: #f87171; border-color: #f87171; }
+
+    /* MODAL */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      display: flex;
+      align-items: flex-end;
+      padding: 0;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      background: var(--surface);
+      border-radius: var(--radius) var(--radius) 0 0;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      width: 100%;
+      max-height: 92vh;
+      overflow-y: auto;
+      padding: 20px;
+      padding-bottom: calc(20px + env(safe-area-inset-bottom));
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+    }
+    .modal-overlay.open .modal {
+      transform: translateY(0);
+    }
+
+    .modal-handle {
+      width: 40px;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 0 auto 20px;
+    }
+
+    .modal-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 20px;
+      margin-bottom: 18px;
+    }
+
+    label {
+      color: var(--text-muted);
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    textarea, input[type="text"], select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      padding: 12px;
+      width: 100%;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+    }
+    textarea:focus, input[type="text"]:focus, select:focus {
+      border-color: var(--accent);
+      outline: none;
+    }
+    textarea { min-height: 100px; resize: vertical; }
+    select option { background: var(--surface2); }
+
+    .form-group { margin-bottom: 14px; }
+
+    .processing-indicator {
+      align-items: center;
+      background: color-mix(in srgb, var(--accent) 10%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+      border-radius: var(--radius-sm);
+      color: var(--accent);
+      display: none;
+      font-size: 14px;
+      gap: 10px;
+      margin-top: 10px;
+      padding: 12px;
+    }
+    .processing-indicator.visible { display: flex; }
+
+    .spinner {
+      animation: spin 1s linear infinite;
+      border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      flex-shrink: 0;
+      height: 16px;
+      width: 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .modal-btns {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      border-radius: var(--radius-sm);
+      color: white;
+      cursor: pointer;
+      flex: 1;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      padding: 13px;
+      transition: opacity 0.2s;
+    }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-secondary {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      padding: 13px 20px;
+    }
+
+    /* DETAIL MODAL */
+    .detail-modal {
+      max-height: 95vh;
+    }
+
+    .detail-section {
+      background: var(--surface2);
+      border-radius: var(--radius-sm);
+      margin-bottom: 12px;
+      padding: 14px;
+    }
+
+    .detail-section h4 {
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+
+    .detail-section p, .detail-section li {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text);
+    }
+
+    .detail-section ul, .detail-section ol {
+      padding-left: 18px;
+    }
+
+    .detail-section li { margin-bottom: 4px; }
+
+    .recipe-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .recipe-table td {
+      border-bottom: 1px solid var(--border);
+      padding: 6px 4px;
+      vertical-align: top;
+    }
+    .recipe-table tr:last-child td { border-bottom: none; }
+    .recipe-table td:first-child { color: var(--text-muted); width: 40%; }
+
+    .status-select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+
+    .url-link {
+      color: var(--accent);
+      font-size: 13px;
+      text-decoration: none;
+      word-break: break-all;
+    }
+
+    /* TOAST */
+    .toast {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      bottom: calc(20px + env(safe-area-inset-bottom));
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      color: var(--text);
+      font-size: 14px;
+      left: 50%;
+      opacity: 0;
+      padding: 12px 18px;
+      position: fixed;
+      transform: translateX(-50%) translateY(10px);
+      transition: all 0.3s;
+      z-index: 999;
+      white-space: nowrap;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* STATUS FILTER ROW */
+    .status-filter-row {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .count-badge {
+      background: var(--surface2);
+      border-radius: 50px;
+      color: var(--text-muted);
+      font-size: 11px;
+      padding: 1px 7px;
+    }
+
+    /* EASTER EGG STYLES */
+    .creature-popup {
+      position: fixed;
+      bottom: calc(80px + env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%) scale(0.5);
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      border-radius: 20px;
+      padding: 16px 20px;
+      text-align: center;
+      z-index: 500;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      max-width: 280px;
+      width: 90%;
+      box-shadow: 0 0 40px rgba(124, 111, 205, 0.3);
+    }
+    .creature-popup.show { opacity: 1; transform: translateX(-50%) scale(1); pointer-events: all; }
+    .creature-popup .creature-emoji { font-size: 40px; display: block; margin-bottom: 8px; }
+    .creature-popup .creature-name { font-family: "Playfair Display", serif; font-size: 16px; font-weight: 700; color: var(--accent2); margin-bottom: 4px; }
+    .creature-popup .creature-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .creature-popup .creature-close { margin-top: 10px; font-size: 11px; color: var(--text-muted); cursor: pointer; }
+
+    @keyframes logoWiggle {
+      0%,100% { transform: rotate(0deg) scale(1); }
+      20% { transform: rotate(-8deg) scale(1.1); }
+      40% { transform: rotate(8deg) scale(1.15); }
+      60% { transform: rotate(-5deg) scale(1.1); }
+      80% { transform: rotate(5deg) scale(1.05); }
+    }
+    .logo { cursor: pointer; display: inline-block; }
+    .logo.wiggling { animation: logoWiggle 0.6s ease; }
+    @keyframes glowPulse {
+      0%,100% { opacity: 1; }
+      50% { opacity: 0.6; letter-spacing: 0.08em; }
+    }
+    .logo.glowing { animation: glowPulse 0.5s ease 6; }
+
+    .secret-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(10,10,24,0.97);
+      z-index: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+      padding: 30px;
+    }
+    .secret-overlay.show { opacity: 1; pointer-events: all; }
+    .secret-overlay h2 { font-family: "Playfair Display", serif; font-size: 26px; margin-bottom: 12px; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; text-align: center; }
+    .secret-overlay p { color: var(--text-muted); font-size: 14px; text-align: center; line-height: 1.8; max-width: 300px; }
+    .secret-overlay .secret-emoji { font-size: 64px; margin-bottom: 16px; animation: floatAnim 3s ease-in-out infinite; }
+    .secret-overlay .secret-close { margin-top: 24px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 50px; color: white; cursor: pointer; font-family: "DM Sans", sans-serif; font-size: 14px; padding: 10px 28px; }
+    @keyframes floatAnim { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+
+    .tagline { font-size: 11px; color: var(--text-muted); font-style: italic; min-height: 14px; letter-spacing: 0.02em; transition: opacity 0.5s; }
+
+    @keyframes cardRainbow {
+      0% { border-color: #f87171; } 16% { border-color: #fb923c; } 33% { border-color: #facc15; }
+      50% { border-color: #4ade80; } 66% { border-color: #60a5fa; } 83% { border-color: #a78bfa; } 100% { border-color: #f87171; }
+    }
+    .save-card.party { animation: cardRainbow 1s linear infinite; }
+
+    .milestone-banner {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: var(--radius);
+      color: white;
+      font-family: "Playfair Display", serif;
+      font-size: 15px;
+      margin-bottom: 12px;
+      padding: 14px 16px;
+      text-align: center;
+      display: none;
+    }
+    .milestone-banner.show { display: block; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <div class="logo" id="logo" onclick="logoTap()">Sara Saves ✦</div>
+      <div class="tagline" id="tagline"></div>
+    </div>
+    <button class="add-btn" onclick="openAddModal()">+ Save</button>
+  </div>
+  <div class="filter-bar" id="catFilter">
+    <button class="filter-chip active" data-cat="All" onclick="filterBy('All', this)">All</button>
+    <button class="filter-chip" data-cat="Unread" onclick="filterByStatus('unread', this)">Unread</button>
+    <button class="filter-chip" data-cat="Job Search" onclick="filterBy('Job Search', this)">Job Search</button>
+    <button class="filter-chip" data-cat="Querying" onclick="filterBy('Querying', this)">Querying</button>
+    <button class="filter-chip" data-cat="Recipes" onclick="filterBy('Recipes', this)">Recipes</button>
+    <button class="filter-chip" data-cat="Places" onclick="filterBy('Places', this)">Places</button>
+    <button class="filter-chip" data-cat="Kids" onclick="filterBy('Kids', this)">Kids</button>
+    <button class="filter-chip" data-cat="Writing Tips" onclick="filterBy('Writing Tips', this)">Writing Tips</button>
+    <button class="filter-chip" data-cat="People to Know" onclick="filterBy('People to Know', this)">People to Know</button>
+  </div>
+</div>
+
+<div class="main">
+  <div id="savesList" class="saves-grid"></div>
+  <div id="emptyState" class="empty-state">
+    <div class="icon">✦</div>
+    <p>Nothing saved yet.<br/>Tap <strong>+ Save</strong> to add something.</p>
+  </div>
+</div>
+
+
+<!-- EASTER EGG ELEMENTS -->
+<div class="creature-popup" id="creaturePopup">
+  <span class="creature-emoji" id="creatureEmoji"></span>
+  <div class="creature-name" id="creatureName"></div>
+  <div class="creature-desc" id="creatureDesc"></div>
+  <div class="creature-close" onclick="closeCreature()">tap to dismiss</div>
+</div>
+
+<div class="secret-overlay" id="secretOverlay">
+  <div class="secret-emoji" id="secretEmoji"></div>
+  <h2 id="secretTitle"></h2>
+  <p id="secretText"></p>
+  <button class="secret-close" onclick="closeSecret()">Back to saving things</button>
+</div>
+
+<div class="milestone-banner" id="milestoneBanner"></div>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Save Something</div>
+
+    <div class="form-group">
+      <label>URL or Text / Paste anything</label>
+      <textarea id="inputContent" placeholder="Paste a link, recipe, social post, or any text..."></textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Category (Claude will suggest if left on Auto)</label>
+      <select id="inputCategory">
+        <option value="auto">Auto-detect</option>
+        <option value="Job Search">Job Search</option>
+        <option value="Querying">Querying</option>
+        <option value="Recipes">Recipes</option>
+        <option value="Places">Places</option>
+        <option value="Kids">Kids</option>
+        <option value="Writing Tips">Writing Tips</option>
+        <option value="People to Know">People to Know</option>
+      </select>
+    </div>
+
+    <div class="processing-indicator" id="processingIndicator">
+      <div class="spinner"></div>
+      <span>Claude is organizing this...</span>
+    </div>
+
+    <div class="modal-btns">
+      <button class="btn-secondary" onclick="closeAddModal()">Cancel</button>
+      <button class="btn-primary" id="saveBtn" onclick="saveItem()">Save & Organize</button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal detail-modal" id="detailContent"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const CATEGORIES = [
+  'Job Search','Querying','Recipes','Places','Kids','Writing Tips','People to Know'
+];
+
+const CAT_COLORS = {
+  'Job Search':     '#f87171', // red
+  'Querying':       '#fb923c', // orange
+  'Recipes':        '#facc15', // yellow
+  'Places':         '#4ade80', // green
+  'Kids':           '#2dd4bf', // teal
+  'Writing Tips':   '#60a5fa', // blue
+  'People to Know': '#a78bfa', // violet
+  'General':        '#7878aa',
+};
+
+function getCatColor(cat) {
+  return CAT_COLORS[cat] || '#8888aa';
+}
+
+// STORAGE
+function loadSaves() {
+  try { return JSON.parse(localStorage.getItem('sara_saves') || '[]'); }
+  catch { return []; }
+}
+function storeSaves(saves) {
+  localStorage.setItem('sara_saves', JSON.stringify(saves));
+}
+
+let saves = loadSaves();
+let currentFilter = 'All';
+let currentStatusFilter = null;
+let activeDetailId = null;
+
+// RENDER
+function render() {
+  const list = document.getElementById('savesList');
+  const empty = document.getElementById('emptyState');
+
+  let filtered = saves;
+  if (currentFilter !== 'All') {
+    filtered = filtered.filter(s => s.category === currentFilter);
+  }
+  if (currentStatusFilter === 'unread') {
+    filtered = filtered.filter(s => s.status === 'unread');
+  }
+
+  if (filtered.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  list.innerHTML = filtered.map(s => {
+    const color = getCatColor(s.category);
+    const dateStr = new Date(s.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `
+      <div class="save-card" onclick="openDetail('${s.id}')">
+        <div class="card-header">
+          <div class="cat-dot" style="background:${color}"></div>
+          <div class="card-meta">
+            <div class="card-title">${escHtml(s.title)}</div>
+            <div class="card-badges">
+              <span class="badge badge-cat" style="--cat-color:${color}">${escHtml(s.category)}</span>
+              <span class="badge badge-status ${s.status}">${statusLabel(s.status)}</span>
+              ${s.newCategoryFlag ? `<span class="badge" style="background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.4);color:#fbbf24">✦ New Category</span>` : ''}
+            </div>
+          </div>
+        </div>
+        ${s.summary ? `<div class="card-summary">${escHtml(s.summary)}</div>` : ''}
+        <div class="card-footer">
+          ${s.nextAction ? `<div class="card-action">→ ${escHtml(s.nextAction)}</div>` : '<div></div>'}
+          ${s.timing ? `<div class="card-timing">⏱ ${escHtml(s.timing)}</div>` : ''}
+        </div>
+        <div class="card-actions-row" onclick="event.stopPropagation()">
+          <select class="status-select" onchange="updateStatus('${s.id}', this.value)">
+            <option value="unread" ${s.status==='unread'?'selected':''}>Unread</option>
+            <option value="in-progress" ${s.status==='in-progress'?'selected':''}>In Progress</option>
+            <option value="done" ${s.status==='done'?'selected':''}>Done</option>
+          </select>
+          <button class="action-btn-sm danger" onclick="deleteItem('${s.id}')">Delete</button>
+          <div class="card-date">${dateStr}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Update category chips with counts
+  updateChipCounts();
+}
+
+function updateChipCounts() {
+  const chips = document.querySelectorAll('[data-cat]');
+  chips.forEach(chip => {
+    const cat = chip.dataset.cat;
+    if (cat === 'All') return;
+    if (cat === 'Unread') return;
+    const count = saves.filter(s => s.category === cat).length;
+    const existing = chip.querySelector('.count-badge');
+    if (existing) existing.remove();
+    if (count > 0) {
+      chip.insertAdjacentHTML('beforeend', `<span class="count-badge">${count}</span>`);
+    }
+  });
+}
+
+function statusLabel(s) {
+  return { 'unread': 'Unread', 'in-progress': 'In Progress', 'done': 'Done' }[s] || s;
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// FILTER
+function filterBy(cat, el) {
+  currentFilter = cat;
+  currentStatusFilter = null;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  render();
+}
+
+function filterByStatus(status, el) {
+  currentFilter = 'All';
+  currentStatusFilter = status;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  render();
+}
+
+// ADD MODAL
+function openAddModal() {
+  document.getElementById('inputContent').value = '';
+  document.getElementById('inputCategory').value = 'auto';
+  document.getElementById('processingIndicator').classList.remove('visible');
+  document.getElementById('saveBtn').disabled = false;
+  document.getElementById('addModal').classList.add('open');
+  setTimeout(() => document.getElementById('inputContent').focus(), 350);
+}
+
+function closeAddModal() {
+  document.getElementById('addModal').classList.remove('open');
+}
+
+// SAVE + CLAUDE PROCESSING
+async function saveItem() {
+  const content = document.getElementById('inputContent').value.trim();
+  if (!content) { showToast('Paste something first'); return; }
+
+  const categoryHint = document.getElementById('inputCategory').value;
+  const btn = document.getElementById('saveBtn');
+  const indicator = document.getElementById('processingIndicator');
+
+  btn.disabled = true;
+  indicator.classList.add('visible');
+
+  try {
+    const result = await processWithClaude(content, categoryHint);
+    const id = 'save_' + Date.now();
+    const save = {
+      id,
+      rawContent: content,
+      title: result.title || content.slice(0, 60),
+      summary: result.summary || '',
+      category: result.category || 'General',
+      nextAction: result.nextAction || '',
+      timing: result.timing || '',
+      tags: result.tags || [],
+      recipeData: result.recipeData || null,
+      placeData: result.placeData || null,
+      newCategoryFlag: result.newCategoryFlag || false,
+      suggestedNewCategory: result.suggestedNewCategory || null,
+      status: 'unread',
+      savedAt: new Date().toISOString(),
+      url: extractUrl(content),
+    };
+
+    saves.unshift(save);
+    storeSaves(saves);
+
+    // If Claude suggests a new category, add it to the UI
+    if (result.newCategoryFlag && result.suggestedNewCategory) {
+      addNewCategoryChip(result.suggestedNewCategory);
+      showToast(`Saved! Claude suggests a new category: "${result.suggestedNewCategory}"`);
+    } else {
+      showToast('Saved and organized ✦');
+    }
+
+    closeAddModal();
+    render();
+  } catch (err) {
+    console.error(err);
+    // Fallback: save without Claude processing
+    const id = 'save_' + Date.now();
+    saves.unshift({
+      id,
+      rawContent: content,
+      title: content.slice(0, 80),
+      summary: '',
+      category: categoryHint === 'auto' ? 'General' : categoryHint,
+      nextAction: '',
+      timing: '',
+      tags: [],
+      recipeData: null,
+      placeData: null,
+      newCategoryFlag: false,
+      status: 'unread',
+      savedAt: new Date().toISOString(),
+      url: extractUrl(content),
+    });
+    storeSaves(saves);
+    showToast('Saved (offline mode - no AI summary)');
+    closeAddModal();
+    render();
+  } finally {
+    btn.disabled = false;
+    indicator.classList.remove('visible');
+  }
+}
+
+async function processWithClaude(content, categoryHint) {
+  const existingCategories = CATEGORIES.join(', ');
+  const isUrl = /^https?:\/\//i.test(content.trim());
+  const categoryInstruction = categoryHint !== 'auto'
+    ? `The user selected category: "${categoryHint}". Use this.`
+    : `Pick the best category from: ${existingCategories}. If none fit well, suggest a new one.`;
+
+  const prompt = `You are organizing a saved item for Sara, a senior media/advertising professional based in New York. She saves URLs, articles, recipes, social media posts, places, and text for later. Analyze this content and return ONLY valid JSON.
+
+Content saved:
+"""
+${content}
+"""
+
+${categoryInstruction}
+
+Return this exact JSON structure (no markdown, no explanation, only JSON):
+{
+  "title": "Short descriptive title (max 10 words)",
+  "summary": "2-3 sentence summary of what this is and why it might be useful to Sara",
+  "category": "one of the existing categories or a new one if needed",
+  "nextAction": "Specific, actionable next step Sara should take (max 12 words)",
+  "timing": "Suggested timing e.g. 'This week', 'Weekend', 'Before next interview', 'When cooking', 'Low urgency'",
+  "tags": ["tag1", "tag2"],
+  "newCategoryFlag": false,
+  "suggestedNewCategory": null,
+  "recipeData": null,
+  "placeData": null
+}
+
+SPECIAL RULES:
+- If this is a RECIPE, populate recipeData: { "prepTime": "", "cookTime", "servings": "", "keyIngredients": [], "dietaryTags": [] }
+- If this is a PLACE, populate placeData: { "city": "", "state": "", "type": "", "recommendedDishes": [] }
+- If you choose a category not in the existing list (${existingCategories}), set newCategoryFlag to true and put the new category name in suggestedNewCategory AND in category.
+- Keep everything concise and mobile-friendly.`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!response.ok) throw new Error('API error ' + response.status);
+  const data = await response.json();
+  const text = data.content.map(b => b.text || '').join('');
+  const clean = text.replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
+}
+
+function extractUrl(content) {
+  const match = content.match(/https?:\/\/[^\s]+/);
+  return match ? match[0] : null;
+}
+
+// UPDATE STATUS
+function updateStatus(id, status) {
+  const idx = saves.findIndex(s => s.id === id);
+  if (idx > -1) {
+    saves[idx].status = status;
+    storeSaves(saves);
+    render();
+  }
+}
+
+// DELETE
+function deleteItem(id) {
+  saves = saves.filter(s => s.id !== id);
+  storeSaves(saves);
+  render();
+  showToast('Deleted');
+}
+
+// DETAIL MODAL
+function openDetail(id) {
+  const save = saves.find(s => s.id === id);
+  if (!save) return;
+  activeDetailId = id;
+  const color = getCatColor(save.category);
+  const dateStr = new Date(save.savedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+  let extraSections = '';
+
+  if (save.recipeData) {
+    const r = save.recipeData;
+    extraSections += `
+      <div class="detail-section">
+        <h4>Recipe Details</h4>
+        <table class="recipe-table">
+          ${r.prepTime ? `<tr><td>Prep Time</td><td>${escHtml(r.prepTime)}</td></tr>` : ''}
+          ${r.cookTime ? `<tr><td>Cook Time</td><td>${escHtml(r.cookTime)}</td></tr>` : ''}
+          ${r.servings ? `<tr><td>Servings</td><td>${escHtml(r.servings)}</td></tr>` : ''}
+          ${r.keyIngredients?.length ? `<tr><td>Key Ingredients</td><td>${r.keyIngredients.map(escHtml).join(', ')}</td></tr>` : ''}
+          ${r.dietaryTags?.length ? `<tr><td>Dietary</td><td>${r.dietaryTags.map(escHtml).join(', ')}</td></tr>` : ''}
+        </table>
+      </div>`;
+  }
+
+  if (save.placeData) {
+    const p = save.placeData;
+    extraSections += `
+      <div class="detail-section">
+        <h4>Place Details</h4>
+        <table class="recipe-table">
+          ${p.city ? `<tr><td>Location</td><td>${escHtml(p.city)}${p.state ? ', ' + escHtml(p.state) : ''}</td></tr>` : ''}
+          ${p.type ? `<tr><td>Type</td><td>${escHtml(p.type)}</td></tr>` : ''}
+          ${p.recommendedDishes?.length ? `<tr><td>Try These</td><td>${p.recommendedDishes.map(escHtml).join(', ')}</td></tr>` : ''}
+        </table>
+      </div>`;
+  }
+
+  const html = `
+    <div class="modal-handle" onclick="closeDetailModal()"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <div class="cat-dot" style="background:${color};width:10px;height:10px"></div>
+      <div class="modal-title" style="margin:0;font-size:18px">${escHtml(save.title)}</div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <span class="badge badge-cat" style="--cat-color:${color}">${escHtml(save.category)}</span>
+      <span class="badge badge-status ${save.status}">${statusLabel(save.status)}</span>
+      <span style="font-size:11px;color:var(--text-muted);align-self:center">${dateStr}</span>
+    </div>
+
+    ${save.summary ? `<div class="detail-section"><h4>Summary</h4><p>${escHtml(save.summary)}</p></div>` : ''}
+
+    <div class="detail-section" style="display:flex;gap:20px;flex-wrap:wrap">
+      ${save.nextAction ? `<div><h4>Next Action</h4><p style="color:var(--accent3)">${escHtml(save.nextAction)}</p></div>` : ''}
+      ${save.timing ? `<div><h4>Timing</h4><p>${escHtml(save.timing)}</p></div>` : ''}
+    </div>
+
+    ${extraSections}
+
+    ${save.url ? `<div class="detail-section"><h4>Link</h4><a class="url-link" href="${escHtml(save.url)}" target="_blank">${escHtml(save.url)}</a></div>` : ''}
+
+    ${save.tags?.length ? `<div class="detail-section"><h4>Tags</h4><div style="display:flex;flex-wrap:wrap;gap:6px">${save.tags.map(t => `<span class="badge" style="background:var(--surface);border:1px solid var(--border);color:var(--text-muted)">${escHtml(t)}</span>`).join('')}</div></div>` : ''}
+
+    <div class="detail-section">
+      <h4>Original Content</h4>
+      <p style="word-break:break-word;font-size:13px;color:var(--text-muted)">${escHtml(save.rawContent.slice(0, 500))}${save.rawContent.length > 500 ? '...' : ''}</p>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <select class="status-select" style="flex:1;padding:10px" onchange="updateStatus('${save.id}', this.value)">
+        <option value="unread" ${save.status==='unread'?'selected':''}>Unread</option>
+        <option value="in-progress" ${save.status==='in-progress'?'selected':''}>In Progress</option>
+        <option value="done" ${save.status==='done'?'selected':''}>Done</option>
+      </select>
+      <button class="btn-secondary" onclick="closeDetailModal()">Close</button>
+    </div>
+  `;
+
+  document.getElementById('detailContent').innerHTML = html;
+  document.getElementById('detailModal').classList.add('open');
+}
+
+function closeDetailModal() {
+  document.getElementById('detailModal').classList.remove('open');
+}
+
+// NEW CATEGORY
+function addNewCategoryChip(name) {
+  if (!CATEGORIES.includes(name)) {
+    CATEGORIES.push(name);
+    CAT_COLORS[name] = '#8888aa';
+    const bar = document.getElementById('catFilter');
+    const chip = document.createElement('button');
+    chip.className = 'filter-chip';
+    chip.dataset.cat = name;
+    chip.textContent = name;
+    chip.onclick = () => filterBy(name, chip);
+    bar.appendChild(chip);
+
+    // Also add to the dropdown
+    const select = document.getElementById('inputCategory');
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    select.appendChild(opt);
+  }
+}
+
+// TOAST
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// CLOSE MODALS ON OVERLAY CLICK
+document.getElementById('addModal').addEventListener('click', function(e) {
+  if (e.target === this) closeAddModal();
+});
+document.getElementById('detailModal').addEventListener('click', function(e) {
+  if (e.target === this) closeDetailModal();
+});
+
+
+// =====================
+// EASTER EGGS
+// =====================
+
+const TAGLINES = [
+  "where links go to be remembered",
+  "smarter than your email drafts folder",
+  "your brain, but organized",
+  "no more losing it in your camera roll",
+  "Tuckahoe's finest link curator",
+  "better than texting it to yourself",
+  "the conservatory, but for links",
+  "querying agents AND organizing links",
+  "240 volts of organizational energy",
+  "catching links like rare Pokémon",
+  "for the person who has tabs open from 2019",
+  "saving things since the algorithm tried to hide them",
+];
+
+const CREATURES = [
+  { emoji: "🦕", name: "The Archival Diplodocus", desc: "A gentle giant who never forgets a link. Possibly your spirit animal." },
+  { emoji: "🦉", name: "The Wise Bookmarking Owl", desc: "Hoots once for recipes, twice for job leads. All-knowing. Slightly judgy." },
+  { emoji: "🐉", name: "Scaleswick the Conservatory Dragon", desc: "Breathes organizational fire. Terrified of unread tabs." },
+  { emoji: "🦋", name: "The Metamorphosis Moth", desc: "Turns chaos into categories. Lives for a good tagging system." },
+  { emoji: "🦊", name: "The Clever Archiving Fox", desc: "Once saved 47 recipes in one weekend. No regrets." },
+  { emoji: "🐙", name: "Octavia the Eight-Tabbed Wonder", desc: "Has exactly eight browser tabs open at all times. Aspirational." },
+  { emoji: "🦄", name: "The Mythical Organized Person", desc: "Rumored to exist. You are becoming one right now." },
+  { emoji: "🐝", name: "The Busy Bee Curator", desc: "Collects links like pollen. The hive mind would be impressed." },
+];
+
+const SECRET_WORDS = {
+  'pikachu': {
+    emoji: '⚡',
+    title: 'A wild Pikachu appeared!',
+    text: 'Your Pokémon card collection approves of this organizational energy. Gotta save 'em all.'
+  },
+  'querying': {
+    emoji: '✉️',
+    title: 'Query sent into the void',
+    text: 'The Mythical Creature Conservatory has been submitted. The agents are reading. Probably. Maybe. Definitely maybe.'
+  },
+  'tuckahoe': {
+    emoji: '🗽',
+    title: 'Home base detected',
+    text: 'Westchester's most organized resident has entered the chat. NYC is lucky to have you nearby.'
+  },
+  'miq': {
+    emoji: '📊',
+    title: 'The IDEA Report lives on',
+    text: 'Six years of inclusion work, data, and executive skepticism navigated. That's not nothing. That's a lot.'
+  },
+  'novelty': {
+    emoji: '🍱',
+    title: 'Novelty food mode: activated',
+    text: 'If it's weird, limited edition, or only exists in one food hall in Brooklyn, you've already saved it.'
+  },
+  'conservatory': {
+    emoji: '🏰',
+    title: 'Welcome to the Conservatory',
+    text: 'Where mythical creatures go to be protected, named, and given alliterative villain foils. Jack would approve.'
+  },
+};
+
+const MILESTONES = {
+  1:  '✦ First save! The journey begins.',
+  5:  '🌱 Five things saved. You're building a habit.',
+  10: '🎯 Ten saves! You're officially more organized than your email drafts folder.',
+  25: '⚡ 25 saves. Pikachu would give this a 10/10.',
+  50: '🏆 Fifty saves. The Conservatory would make a creature in your honor.',
+  100:'🦄 One hundred saves. You've become the Mythical Organized Person.',
+};
+
+// ROTATING TAGLINES
+let taglineIndex = Math.floor(Math.random() * TAGLINES.length);
+function setTagline() {
+  const el = document.getElementById('tagline');
+  if (el) {
+    el.style.opacity = '0';
+    setTimeout(() => {
+      el.textContent = TAGLINES[taglineIndex % TAGLINES.length];
+      el.style.opacity = '1';
+      taglineIndex++;
+    }, 400);
+  }
+}
+setInterval(setTagline, 8000);
+
+// LOGO TAP EASTER EGG
+let logoTapCount = 0;
+let logoTapTimer = null;
+function logoTap() {
+  logoTapCount++;
+  const logo = document.getElementById('logo');
+  logo.classList.remove('wiggling');
+  void logo.offsetWidth;
+  logo.classList.add('wiggling');
+  setTimeout(() => logo.classList.remove('wiggling'), 600);
+
+  clearTimeout(logoTapTimer);
+  logoTapTimer = setTimeout(() => {
+    if (logoTapCount >= 5) {
+      // 5 taps: show a random conservatory creature
+      const creature = CREATURES[Math.floor(Math.random() * CREATURES.length)];
+      document.getElementById('creatureEmoji').textContent = creature.emoji;
+      document.getElementById('creatureName').textContent = creature.name;
+      document.getElementById('creatureDesc').textContent = creature.desc;
+      document.getElementById('creaturePopup').classList.add('show');
+      setTimeout(closeCreature, 5000);
+    } else if (logoTapCount >= 3) {
+      const logo = document.getElementById('logo');
+      logo.classList.add('glowing');
+      setTimeout(() => logo.classList.remove('glowing'), 4000);
+      showToast('✦ three taps... keep going');
+    }
+    logoTapCount = 0;
+  }, 600);
+}
+
+function closeCreature() {
+  document.getElementById('creaturePopup').classList.remove('show');
+}
+
+// SECRET WORDS in save box
+const inputEl = document.getElementById('inputContent');
+if (inputEl) {
+  inputEl.addEventListener('input', function() {
+    const val = this.value.trim().toLowerCase();
+    if (SECRET_WORDS[val]) {
+      const s = SECRET_WORDS[val];
+      document.getElementById('secretEmoji').textContent = s.emoji;
+      document.getElementById('secretTitle').textContent = s.title;
+      document.getElementById('secretText').textContent = s.text;
+      document.getElementById('secretOverlay').classList.add('show');
+    }
+  });
+}
+
+function closeSecret() {
+  document.getElementById('secretOverlay').classList.remove('show');
+}
+
+// MILESTONE CELEBRATIONS
+function checkMilestone(count) {
+  if (MILESTONES[count]) {
+    const banner = document.getElementById('milestoneBanner');
+    banner.textContent = MILESTONES[count];
+    banner.classList.add('show');
+    // Rainbow the cards briefly
+    document.querySelectorAll('.save-card').forEach(c => {
+      c.classList.add('party');
+      setTimeout(() => c.classList.remove('party'), 3000);
+    });
+    setTimeout(() => banner.classList.remove('show'), 6000);
+  }
+}
+
+// HOOK milestone check into saveItem success
+const _origSaveItem = saveItem;
+// We patch the render function to check milestones after saves
+const _origStoreSaves = storeSaves;
+function storeSaves(s) {
+  const prev = loadSaves().length;
+  localStorage.setItem('sara_saves', JSON.stringify(s));
+  if (s.length > prev) {
+    setTimeout(() => checkMilestone(s.length), 800);
+  }
+}
+
+// SHARE TARGET HANDLER (for share sheet URL)
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(window.location.search);
+  const shared = params.get('text') || params.get('url') || params.get('title');
+  if (shared) {
+    setTimeout(() => {
+      document.getElementById('inputContent').value = shared;
+      openAddModal();
+      window.history.replaceState({}, '', window.location.pathname);
+    }, 500);
+  }
+  setTagline();
+  render();
+});
+</script>
+</body>
+</html>
