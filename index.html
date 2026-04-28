@@ -942,6 +942,7 @@ async function saveItem() {
     render();
   } catch (err) {
     console.error(err);
+    showToast('Error: ' + err.message + ' — check console');
     // Fallback: save without Claude processing
     const id = 'save_' + Date.now();
     saves.unshift({
@@ -968,7 +969,7 @@ async function saveItem() {
       recipeUserNote: '',
     });
     storeSaves(saves);
-    showToast('Saved (offline mode - no AI summary)');
+    showToast('⚠️ Saved without AI — Worker error: ' + err.message);
     closeAddModal();
     render();
   } finally {
@@ -1038,11 +1039,20 @@ SPECIAL RULES:
     })
   });
 
-  if (!response.ok) throw new Error('API error ' + response.status);
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error('Worker error ' + response.status + ': ' + errText.slice(0, 100));
+  }
   const data = await response.json();
+  if (data.error) throw new Error('API error: ' + data.error);
+  if (!data.content) throw new Error('Unexpected response: ' + JSON.stringify(data).slice(0, 100));
   const text = data.content.map(b => b.text || '').join('');
   const clean = text.replace(/```json|```/g, '').trim();
-  return JSON.parse(clean);
+  try {
+    return JSON.parse(clean);
+  } catch(e) {
+    throw new Error('JSON parse error. Claude said: ' + clean.slice(0, 100));
+  }
 }
 
 function extractUrl(content) {
