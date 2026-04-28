@@ -929,12 +929,13 @@ SPECIAL RULES:
 - If you choose a category not in the existing list (${existingCategories}), set newCategoryFlag to true and put the new category name in suggestedNewCategory AND in category.
 - Keep everything concise and mobile-friendly.`;
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  // Calls your Cloudflare Worker — update this URL after you deploy the worker
+  const WORKER_URL = 'https://sara-saves.sra817.workers.dev/';
+
+  const response = await fetch(WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
       messages: [{ role: 'user', content: prompt }]
     })
   });
@@ -1126,45 +1127,45 @@ const CREATURES = [
 ];
 
 const SECRET_WORDS = {
-  'pikachu': {
-    emoji: '⚡',
-    title: 'A wild Pikachu appeared!',
-    text: 'Your Pokémon card collection approves of this organizational energy. Gotta save 'em all.'
+  pikachu: {
+    emoji: "⚡",
+    title: "A wild Pikachu appeared!",
+    text: "Your Pokémon card collection approves of this organizational energy. Gotta save 'em all."
   },
-  'querying': {
-    emoji: '✉️',
-    title: 'Query sent into the void',
-    text: 'The Mythical Creature Conservatory has been submitted. The agents are reading. Probably. Maybe. Definitely maybe.'
+  querying: {
+    emoji: "✉️",
+    title: "Query sent into the void",
+    text: "The Mythical Creature Conservatory has been submitted. The agents are reading. Probably. Maybe. Definitely maybe."
   },
-  'tuckahoe': {
-    emoji: '🗽',
-    title: 'Home base detected',
-    text: 'Westchester's most organized resident has entered the chat. NYC is lucky to have you nearby.'
+  tuckahoe: {
+    emoji: "🗽",
+    title: "Home base detected",
+    text: "Westchester's most organized resident has entered the chat. NYC is lucky to have you nearby."
   },
-  'miq': {
-    emoji: '📊',
-    title: 'The IDEA Report lives on',
-    text: 'Six years of inclusion work, data, and executive skepticism navigated. That's not nothing. That's a lot.'
+  miq: {
+    emoji: "📊",
+    title: "The IDEA Report lives on",
+    text: "Six years of inclusion work, data, and executive skepticism navigated. That's not nothing. That's a lot."
   },
-  'novelty': {
-    emoji: '🍱',
-    title: 'Novelty food mode: activated',
-    text: 'If it's weird, limited edition, or only exists in one food hall in Brooklyn, you've already saved it.'
+  novelty: {
+    emoji: "🍱",
+    title: "Novelty food mode: activated",
+    text: "If it's weird, limited edition, or only exists in one food hall in Brooklyn, you've already saved it."
   },
-  'conservatory': {
-    emoji: '🏰',
-    title: 'Welcome to the Conservatory',
-    text: 'Where mythical creatures go to be protected, named, and given alliterative villain foils. Jack would approve.'
+  conservatory: {
+    emoji: "🏰",
+    title: "Welcome to the Conservatory",
+    text: "Where mythical creatures go to be protected, named, and given alliterative villain foils. Jack would approve."
   },
 };
 
 const MILESTONES = {
-  1:  '✦ First save! The journey begins.',
-  5:  '🌱 Five things saved. You're building a habit.',
-  10: '🎯 Ten saves! You're officially more organized than your email drafts folder.',
-  25: '⚡ 25 saves. Pikachu would give this a 10/10.',
-  50: '🏆 Fifty saves. The Conservatory would make a creature in your honor.',
-  100:'🦄 One hundred saves. You've become the Mythical Organized Person.',
+  1:  "✦ First save! The journey begins.",
+  5:  "🌱 Five things saved. You're building a habit.",
+  10: "🎯 Ten saves! You're officially more organized than your email drafts folder.",
+  25: "⚡ 25 saves. Pikachu would give this a 10/10.",
+  50: "🏆 Fifty saves. The Conservatory would make a creature in your honor.",
+  100:"🦄 One hundred saves. You've become the Mythical Organized Person.",
 };
 
 // ROTATING TAGLINES
