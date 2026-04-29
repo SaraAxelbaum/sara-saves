@@ -2,10 +2,10 @@
   "name": "Sara Saves",
   "short_name": "Sara Saves",
   "description": "Save and organize links, recipes, places, and more",
-  "start_url": "/index.html",
+  "start_url": "/sara-saves/",
   "display": "standalone",
-  "background_color": "#0f0f1a",
-  "theme_color": "#1a1a2e",
+  "background_color": "#0a0a18",
+  "theme_color": "#0a0a18",
   "orientation": "portrait",
   "icons": [
     {
@@ -22,12 +22,13 @@
     }
   ],
   "share_target": {
-    "action": "/index.html",
+    "action": "/sara-saves/",
     "method": "GET",
     "params": {
       "title": "title",
       "text": "text",
       "url": "url"
     }
-  }
+  },
+  "scope": "/sara-saves/"
 }
