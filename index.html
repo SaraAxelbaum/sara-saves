@@ -9,6 +9,9 @@
   <meta name="theme-color" content="#0a0a18" />
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16.png" />
   <title>Sara Saves</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
   <style>
@@ -722,15 +725,36 @@ function getCatColor(cat) {
 }
 
 // STORAGE
-function loadSaves() {
-  try { return JSON.parse(localStorage.getItem('sara_saves') || '[]'); }
-  catch { return []; }
-}
-function storeSaves(saves) {
-  localStorage.setItem('sara_saves', JSON.stringify(saves));
+const WORKER_URL = 'https://sara-saves.sra817.workers.dev/';
+
+async function loadSaves() {
+  try {
+    const res = await fetch(WORKER_URL + 'saves');
+    if (!res.ok) throw new Error('load failed');
+    const data = await res.json();
+    return data.saves || [];
+  } catch {
+    // fallback to localStorage if offline
+    try { return JSON.parse(localStorage.getItem('sara_saves') || '[]'); }
+    catch { return []; }
+  }
 }
 
-let saves = loadSaves();
+async function storeSaves(savesArr) {
+  // Always write to localStorage as backup
+  localStorage.setItem('sara_saves', JSON.stringify(savesArr));
+  try {
+    await fetch(WORKER_URL + 'saves', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ saves: savesArr }),
+    });
+  } catch(e) {
+    console.warn('KV write failed, saved locally only:', e.message);
+  }
+}
+
+let saves = [];
 let currentFilter = 'All';
 let currentStatusFilter = null;
 let activeDetailId = null;
@@ -928,7 +952,8 @@ async function saveItem() {
     };
 
     saves.unshift(save);
-    storeSaves(saves);
+    await storeSaves(saves);
+    _checkMilestoneOnSave(saves.length);
 
     // If Claude suggests a new category, add it to the UI
     if (result.newCategoryFlag && result.suggestedNewCategory) {
@@ -968,7 +993,7 @@ async function saveItem() {
       recipeRating: null,
       recipeUserNote: '',
     });
-    storeSaves(saves);
+    await storeSaves(saves);
     showToast('⚠️ Saved without AI — Worker error: ' + err.message);
     closeAddModal();
     render();
@@ -1028,9 +1053,6 @@ SPECIAL RULES:
 - Keep everything concise and mobile-friendly
 - NEVER return a raw URL as the title`;
 
-  // Calls your Cloudflare Worker — update this URL after you deploy the worker
-  const WORKER_URL = 'https://sara-saves.sra817.workers.dev/';
-
   const response = await fetch(WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1061,30 +1083,30 @@ function extractUrl(content) {
 }
 
 // UPDATE STATUS
-function updateStatus(id, status) {
+async function updateStatus(id, status) {
   const idx = saves.findIndex(s => s.id === id);
   if (idx > -1) {
     saves[idx].status = status;
-    storeSaves(saves);
+    await storeSaves(saves);
     render();
   }
 }
 
 // TODO DONE TOGGLE
-function toggleTodoDone(id, done) {
+async function toggleTodoDone(id, done) {
   const idx = saves.findIndex(s => s.id === id);
   if (idx > -1) {
     saves[idx].todoDone = done;
     saves[idx].status = done ? 'done' : 'in-progress';
-    storeSaves(saves);
+    await storeSaves(saves);
     render();
   }
 }
 
 // DELETE
-function deleteItem(id) {
+async function deleteItem(id) {
   saves = saves.filter(s => s.id !== id);
-  storeSaves(saves);
+  await storeSaves(saves);
   render();
   showToast('Deleted');
 }
@@ -1097,105 +1119,125 @@ function openDetail(id) {
   const color = getCatColor(save.category);
   const dateStr = new Date(save.savedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
-  let extraSections = '';
+  // Build category options
+  const catOptions = CATEGORIES.map(c => 
+    `<option value="${c}" ${save.category === c ? 'selected' : ''}>${c}</option>`
+  ).join('');
 
+  let recipeRatingHtml = '';
   if (save.recipeData) {
-    const r = save.recipeData;
-    extraSections += `
-      <div class="detail-section">
-        <h4>Recipe Details</h4>
-        <table class="recipe-table">
-          ${r.prepTime ? `<tr><td>Prep Time</td><td>${escHtml(r.prepTime)}</td></tr>` : ''}
-          ${r.cookTime ? `<tr><td>Cook Time</td><td>${escHtml(r.cookTime)}</td></tr>` : ''}
-          ${r.servings ? `<tr><td>Servings</td><td>${escHtml(r.servings)}</td></tr>` : ''}
-          ${r.keyIngredients?.length ? `<tr><td>Key Ingredients</td><td>${r.keyIngredients.map(escHtml).join(', ')}</td></tr>` : ''}
-          ${r.dietaryTags?.length ? `<tr><td>Dietary</td><td>${r.dietaryTags.map(escHtml).join(', ')}</td></tr>` : ''}
-        </table>
-      </div>`;
+    recipeRatingHtml = `
+    <div class="detail-section">
+      <h4>Rate This Recipe</h4>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div style="display:flex;gap:4px" id="starRow">
+          ${[1,2,3,4,5].map(n => `<span data-star="${n}" onclick="setDetailStar(${n})" style="font-size:28px;cursor:pointer;opacity:${(save.recipeRating||0)>=n?1:0.25}">★</span>`).join('')}
+        </div>
+        <span id="starLabel" style="color:var(--text-muted);font-size:13px">${save.recipeRating ? save.recipeRating+'/5' : 'Tap to rate'}</span>
+      </div>
+      <label style="color:var(--text-muted);font-size:11px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;display:block;margin-bottom:6px">Recipe Note</label>
+      <textarea id="detailRecipeNote" placeholder="How did it turn out?" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:10px;width:100%;min-height:60px;resize:vertical">${escHtml(save.recipeUserNote||'')}</textarea>
+    </div>`;
   }
 
+  let recipeInfoHtml = '';
+  if (save.recipeData) {
+    const r = save.recipeData;
+    recipeInfoHtml = `
+    <div class="detail-section">
+      <h4>Recipe Details</h4>
+      <table class="recipe-table">
+        ${r.prepTime ? `<tr><td>Prep Time</td><td>${escHtml(r.prepTime)}</td></tr>` : ''}
+        ${r.cookTime ? `<tr><td>Cook Time</td><td>${escHtml(r.cookTime)}</td></tr>` : ''}
+        ${r.servings ? `<tr><td>Servings</td><td>${escHtml(r.servings)}</td></tr>` : ''}
+        ${r.keyIngredients?.length ? `<tr><td>Key Ingredients</td><td>${r.keyIngredients.map(escHtml).join(', ')}</td></tr>` : ''}
+        ${r.dietaryTags?.length ? `<tr><td>Dietary</td><td>${r.dietaryTags.map(escHtml).join(', ')}</td></tr>` : ''}
+      </table>
+    </div>`;
+  }
+
+  let placeInfoHtml = '';
   if (save.placeData) {
     const p = save.placeData;
-    extraSections += `
-      <div class="detail-section">
-        <h4>Place Details</h4>
-        <table class="recipe-table">
-          ${p.city ? `<tr><td>Location</td><td>${escHtml(p.city)}${p.state ? ', ' + escHtml(p.state) : ''}</td></tr>` : ''}
-          ${p.type ? `<tr><td>Type</td><td>${escHtml(p.type)}</td></tr>` : ''}
-          ${p.recommendedDishes?.length ? `<tr><td>Try These</td><td>${p.recommendedDishes.map(escHtml).join(', ')}</td></tr>` : ''}
-        </table>
-      </div>`;
+    placeInfoHtml = `
+    <div class="detail-section">
+      <h4>Place Details</h4>
+      <table class="recipe-table">
+        ${p.city ? `<tr><td>Location</td><td>${escHtml(p.city)}${p.state ? ', '+escHtml(p.state) : ''}</td></tr>` : ''}
+        ${p.type ? `<tr><td>Type</td><td>${escHtml(p.type)}</td></tr>` : ''}
+        ${p.recommendedDishes?.length ? `<tr><td>Try These</td><td>${p.recommendedDishes.map(escHtml).join(', ')}</td></tr>` : ''}
+      </table>
+    </div>`;
   }
 
   const html = `
     <div class="modal-handle" onclick="closeDetailModal()"></div>
+
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-      <div class="cat-dot" style="background:${color};width:10px;height:10px"></div>
-      <div class="modal-title" style="margin:0;font-size:18px">${escHtml(save.title)}</div>
-    </div>
-
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-      <span class="badge badge-cat" style="--cat-color:${color}">${escHtml(save.category)}</span>
-      <span class="badge badge-status ${save.status}">${statusLabel(save.status)}</span>
-      <span style="font-size:11px;color:var(--text-muted);align-self:center">${dateStr}</span>
-    </div>
-
-    ${save.summary ? `<div class="detail-section"><h4>Summary</h4><p>${escHtml(save.summary)}</p></div>` : ''}
-
-    <div class="detail-section" style="display:flex;gap:20px;flex-wrap:wrap">
-      ${save.nextAction ? `<div><h4>Next Action</h4><p style="color:var(--accent3)">${escHtml(save.nextAction)}</p></div>` : ''}
-      ${save.timing ? `<div><h4>Timing</h4><p>${escHtml(save.timing)}</p></div>` : ''}
-    </div>
-
-    ${extraSections}
-
-    ${save.url ? `<div class="detail-section"><h4>Link</h4><a class="url-link" href="${escHtml(save.url)}" target="_blank">${escHtml(save.url)}</a></div>` : ''}
-
-    ${save.tags?.length ? `<div class="detail-section"><h4>Tags</h4><div style="display:flex;flex-wrap:wrap;gap:6px">${save.tags.map(t => `<span class="badge" style="background:var(--surface);border:1px solid var(--border);color:var(--text-muted)">${escHtml(t)}</span>`).join('')}</div></div>` : ''}
-
-    ${save.userNote ? `<div class="detail-section"><h4>Your Note</h4><p>${escHtml(save.userNote)}</p></div>` : ''}
-
-    ${save.isTodo ? `<div class="detail-section">
-      <h4>To Do Details</h4>
-      <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:14px">
-        ${save.dueDate ? `<div><span style="color:var(--text-muted)">Due: </span>${escHtml(save.dueDate)}</div>` : ''}
-        ${save.priority ? `<div><span style="color:var(--text-muted)">Priority: </span>${save.priority === 'high' ? '🔴 High' : save.priority === 'medium' ? '🟡 Medium' : '🟢 Low'}</div>` : ''}
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${save.todoDone?'checked':''} onchange="toggleTodoDone('${save.id}', this.checked)" style="accent-color:var(--accent3)"> Mark done</label>
+      <div class="cat-dot" style="background:${color};width:10px;height:10px;flex-shrink:0"></div>
+      <div style="flex:1">
+        <input id="detailTitle" value="${escHtml(save.title)}" style="background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-family:'Playfair Display',serif;font-size:18px;font-weight:700;width:100%;padding:2px 0" />
       </div>
-    </div>` : ''}
-
-    ${save.recipeData ? `<div class="detail-section">
-      <h4>Rate This Recipe</h4>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <div id="starRating_${save.id}" style="display:flex;gap:4px">
-          ${[1,2,3,4,5].map(n => `<span onclick="rateRecipe('${save.id}',${n})" style="font-size:24px;cursor:pointer;opacity:${(save.recipeRating||0)>=n?1:0.3}">★</span>`).join('')}
-        </div>
-        ${save.recipeRating ? `<span style="color:var(--text-muted);font-size:13px">${save.recipeRating}/5</span>` : '<span style="color:var(--text-muted);font-size:12px">Tap to rate</span>'}
-      </div>
-      <div style="margin-top:10px">
-        <textarea id="recipeNote_${save.id}" placeholder="Add a note about this recipe..." style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:10px;width:100%;min-height:60px;resize:vertical">${escHtml(save.recipeUserNote||'')}</textarea>
-        <button onclick="saveRecipeNote('${save.id}')" style="margin-top:6px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text-muted);cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;padding:5px 12px">Save Note</button>
-      </div>
-    </div>` : ''}
-
-    <div class="detail-section">
-      <h4>Original Content</h4>
-      <p style="word-break:break-word;font-size:13px;color:var(--text-muted)">${escHtml(save.rawContent.slice(0, 500))}${save.rawContent.length > 500 ? '...' : ''}</p>
     </div>
 
-    <div style="display:flex;gap:10px;margin-top:16px">
-      <select class="status-select" style="flex:1;padding:10px" onchange="updateStatus('${save.id}', this.value)">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center">
+      <select id="detailCategory" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;padding:4px 8px">${catOptions}</select>
+      <select id="detailStatus" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;padding:4px 8px">
         <option value="unread" ${save.status==='unread'?'selected':''}>Unread</option>
         <option value="in-progress" ${save.status==='in-progress'?'selected':''}>In Progress</option>
         <option value="done" ${save.status==='done'?'selected':''}>Done</option>
       </select>
-      <button class="btn-secondary" onclick="closeDetailModal()">Close</button>
+      <span style="font-size:11px;color:var(--text-muted)">${dateStr}</span>
+    </div>
+
+    ${save.summary ? `<div class="detail-section"><h4>Summary</h4><p style="font-size:13px;color:var(--text-muted)">${escHtml(save.summary)}</p></div>` : ''}
+
+    <div class="detail-section" style="display:flex;gap:16px;flex-wrap:wrap">
+      ${save.nextAction ? `<div><h4>Next Action</h4><p style="color:var(--accent3);font-size:13px">${escHtml(save.nextAction)}</p></div>` : ''}
+      ${save.timing ? `<div><h4>Timing</h4><p style="font-size:13px">${escHtml(save.timing)}</p></div>` : ''}
+    </div>
+
+    ${recipeInfoHtml}
+    ${placeInfoHtml}
+
+    ${save.url ? `<div class="detail-section"><h4>Link</h4><a class="url-link" href="${escHtml(save.url)}" target="_blank">${escHtml(save.url)}</a></div>` : ''}
+
+    <div class="detail-section">
+      <label style="color:var(--text-muted);font-size:11px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;display:block;margin-bottom:6px">Your Note</label>
+      <textarea id="detailNote" placeholder="Add a note..." style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:10px;width:100%;min-height:60px;resize:vertical">${escHtml(save.userNote||'')}</textarea>
+    </div>
+
+    ${save.isTodo ? `<div class="detail-section">
+      <h4>To Do</h4>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+        <input type="date" id="detailDueDate" value="${escHtml(save.dueDate||'')}" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:6px 10px">
+        <select id="detailPriority" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:6px 10px">
+          <option value="">No priority</option>
+          <option value="high" ${save.priority==='high'?'selected':''}>🔴 High</option>
+          <option value="medium" ${save.priority==='medium'?'selected':''}>🟡 Medium</option>
+          <option value="low" ${save.priority==='low'?'selected':''}>🟢 Low</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+          <input type="checkbox" id="detailTodoDone" ${save.todoDone?'checked':''} style="accent-color:var(--accent3)"> Done
+        </label>
+      </div>
+    </div>` : ''}
+
+    ${recipeRatingHtml}
+
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn-secondary" onclick="closeDetailModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveDetail('${save.id}')">Save</button>
     </div>
   `;
 
   document.getElementById('detailContent').innerHTML = html;
   document.getElementById('detailModal').classList.add('open');
+
+  // Set initial star rating state
+  window._detailRating = save.recipeRating || 0;
 }
+
 
 function closeDetailModal() {
   document.getElementById('detailModal').classList.remove('open');
@@ -1377,24 +1419,45 @@ if (inputEl) {
   });
 }
 
-function rateRecipe(id, rating) {
-  const idx = saves.findIndex(s => s.id === id);
-  if (idx > -1) {
-    saves[idx].recipeRating = rating;
-    storeSaves(saves);
-    openDetail(id); // re-render detail
-    showToast('Rating saved!');
-  }
+function setDetailStar(n) {
+  window._detailRating = n;
+  document.querySelectorAll('#starRow span').forEach(s => {
+    s.style.opacity = parseInt(s.dataset.star) <= n ? '1' : '0.25';
+  });
+  const label = document.getElementById('starLabel');
+  if (label) label.textContent = n + '/5';
 }
 
-function saveRecipeNote(id) {
+async function saveDetail(id) {
   const idx = saves.findIndex(s => s.id === id);
-  const note = document.getElementById('recipeNote_' + id);
-  if (idx > -1 && note) {
-    saves[idx].recipeUserNote = note.value;
-    storeSaves(saves);
-    showToast('Note saved!');
+  if (idx === -1) return;
+
+  const titleEl = document.getElementById('detailTitle');
+  const noteEl = document.getElementById('detailNote');
+  const categoryEl = document.getElementById('detailCategory');
+  const statusEl = document.getElementById('detailStatus');
+  const dueDateEl = document.getElementById('detailDueDate');
+  const priorityEl = document.getElementById('detailPriority');
+  const todoDoneEl = document.getElementById('detailTodoDone');
+  const recipeNoteEl = document.getElementById('detailRecipeNote');
+
+  if (titleEl) saves[idx].title = titleEl.value.trim();
+  if (noteEl) saves[idx].userNote = noteEl.value;
+  if (categoryEl) saves[idx].category = categoryEl.value;
+  if (statusEl) saves[idx].status = statusEl.value;
+  if (dueDateEl) saves[idx].dueDate = dueDateEl.value;
+  if (priorityEl) saves[idx].priority = priorityEl.value;
+  if (todoDoneEl) {
+    saves[idx].todoDone = todoDoneEl.checked;
+    if (todoDoneEl.checked) saves[idx].status = 'done';
   }
+  if (recipeNoteEl) saves[idx].recipeUserNote = recipeNoteEl.value;
+  if (window._detailRating) saves[idx].recipeRating = window._detailRating;
+
+  await storeSaves(saves);
+  closeDetailModal();
+  render();
+  showToast('Saved ✦');
 }
 
 function closeSecret() {
@@ -1419,17 +1482,16 @@ function checkMilestone(count) {
 // HOOK milestone check into saveItem success
 const _origSaveItem = saveItem;
 // We patch the render function to check milestones after saves
-const _origStoreSaves = storeSaves;
-function storeSaves(s) {
-  const prev = loadSaves().length;
-  localStorage.setItem('sara_saves', JSON.stringify(s));
-  if (s.length > prev) {
-    setTimeout(() => checkMilestone(s.length), 800);
-  }
-}
+// Milestone check hooks into saves array length changes
+const _checkMilestoneOnSave = (len) => setTimeout(() => checkMilestone(len), 800);
 
 // SHARE TARGET HANDLER (for share sheet URL)
 window.addEventListener('DOMContentLoaded', () => {
+  (async () => {
+  // Load saves from KV on startup
+  showToast('Loading your saves...');
+  saves = await loadSaves();
+  
   const params = new URLSearchParams(window.location.search);
   const shared = params.get('text') || params.get('url') || params.get('title');
   if (shared) {
@@ -1441,6 +1503,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   setTagline();
   render();
+  })();
 });
 </script>
 </body>
